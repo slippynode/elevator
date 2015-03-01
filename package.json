@@ -1,0 +1,26 @@
+{
+  "name": "elevator",
+  "version": "0.0.1-dev",
+  "description": "Read/write elevation data across raster and vector geometries.",
+  "main": "index.js",
+  "dependencies": {
+    "gdal": "^0.4.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slippynode/elevator.git"
+  },
+  "author": "Adrian Sonnenschein",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/slippynode/elevator/issues"
+  },
+  "homepage": "https://github.com/slippynode/elevator",
+  "dependencies": {
+    "gdal": "0.4.1"
+  }
+}
