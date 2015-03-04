@@ -15,13 +15,56 @@ program
   .option('-p, --path [value]', 'Path to look for raster datasets')
   .option('-l, --list', 'List all raster datasets in directory')
   .option('-m, --metadata', 'Display raster metadata')
+  .option('-s, --stream', 'Operate on a stream of JSON')
+  .option('-b, --bounds [value]', 'Get Bounding Box for a feature')
   .parse(process.argv)
 ;
 
 if (program.path && program.list) queue.push(listRasters());
 if (program.path && program.metadata) queue.push(displayMetadata);
+if (program.stream && program.bounds) queue.push(calculateBounds);
 async.series(queue)
 
+function stream (callback) {
+
+  var response = '';
+  process.stdin.resume();
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', function (chunk) {
+    response += chunk;
+  });
+
+  process.stdout.on('error', function (error) {
+    callback(error);
+  });
+
+  process.stdin.on('end', function () {
+    callback(null, response);
+  });
+
+};
+
+function calculateBounds () {
+
+  stream(function (error, data) {
+    if (error) throw error;
+
+    var bounds
+      , lineString
+    ;
+
+    lineString = new gdal.LineString()
+
+    data = JSON.parse(data);
+
+    _.each(data.coordinates, function (c) {
+      lineString.points.add(new gdal.Point(c[0], c[1]));
+    });
+
+    bounds = lineString.getEnvelope();
+  });
+
+};
 
 function listRasters (callback) {
 
