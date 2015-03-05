@@ -2,6 +2,7 @@
 
 var _ = require('lodash')
   , async = require('async')
+  , exec = require('child_process').exec
   , fs = require('fs')
   , gdal = require('gdal')
   , path = require('path')
@@ -39,56 +40,41 @@ function reprojectRaster () {
   }
   else {
     listRasters(function (rasters) {
-      _.each(rasters, function (raster) {
-        raster = path.join(program.path, raster);
-        reproject(raster);
-      });
+
+      function recurse (raster) {
+        if (raster) {
+          raster = path.join(program.path, raster);
+          reproject(raster, function (error) {
+            if (error) throw error;
+            recurse(rasters.shift());
+          })
+        }
+        else {
+          console.log('Reproject raster images complete');
+        }
+      };
+
+      recurse(rasters.shift());
+
     });
   }
 
-  function reproject(filePath) {
+  function reproject (input, callback) {
 
     var src
-      , w
-      , h
-      , sSrs
-      , tSrs
+      , command
       , parsed
-      , out
-      , driver
-      , geoTransform
-      , res
-      , tw
-      , th
+      , output
     ;
 
-    src = gdal.open(filePath);
-    driver = 'GTiff';
-    w = src.rasterSize.x;
-    h = src.rasterSize.y;
+    parsed = path.parse(input);
+    output = path.join(program.outpath, parsed.name + parsed.ext);
+    command = 'gdalwarp -t_srs "EPSG:4326" "' + input + '" "' + output + '"';
 
-    geoTransform = src.geoTransform;
-
-    res = {
-      x: geoTransform[1],
-      y: geoTransform[5]
-    };
-
-    tw = Math.ceil(res.x);
-    th = Math.ceil(res.y);
-
-    sSrs = src.srs;
-    tSrs = gdal.SpatialReference.fromUserInput('EPSG:4326');
-
-    parsed = path.parse(filePath);
-    out = path.join(program.outpath, parsed.name + parsed.ext);
-    dst = gdal.open(out, 'w', driver, tw, th);
-
-    gdal.reprojectImage({
-      src: src,
-      dst: out,
-      s_srs: sSrs,
-      t_srs: tSrs
+    exec(command, function (err, stdout, stderr) {
+      if (err) callback(err);
+      if (stderr) callback(stderr);
+      callback();
     });
 
   };
