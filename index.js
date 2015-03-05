@@ -13,17 +13,87 @@ var _ = require('lodash')
 program
   .version('0.0.1-dev')
   .option('-p, --path [value]', 'Path to look for raster datasets')
+  .option('-o,  --outpath [value]', 'Path to write out files')
   .option('-l, --list', 'List all raster datasets in directory')
   .option('-m, --metadata', 'Display raster metadata')
   .option('-s, --stream', 'Operate on a stream of JSON')
   .option('-b, --bounds [value]', 'Get Bounding Box for a feature')
+  .option('-r, --reproject', 'Reproject raster(s) to EPSG:4326')
   .parse(process.argv)
 ;
 
-if (program.path && program.list) queue.push(listRasters());
-if (program.path && program.metadata) queue.push(displayMetadata);
-if (program.stream && program.bounds) queue.push(calculateBounds);
+if (program.path && program.list)
+  queue.push(listRasters());
+if (program.path && program.metadata)
+  queue.push(displayMetadata);
+if (program.stream && program.bounds)
+  queue.push(calculateBounds);
+if (program.path && program.outpath && program.reproject)
+  queue.push(reprojectRaster);
 async.series(queue)
+
+function reprojectRaster () {
+
+  if (fs.statSync(program.path).isFile()) {
+    reproject(program.path);
+  }
+  else {
+    listRasters(function (rasters) {
+      _.each(rasters, function (raster) {
+        raster = path.join(program.path, raster);
+        reproject(raster);
+      });
+    });
+  }
+
+  function reproject(filePath) {
+
+    var src
+      , w
+      , h
+      , sSrs
+      , tSrs
+      , parsed
+      , out
+      , driver
+      , geoTransform
+      , res
+      , tw
+      , th
+    ;
+
+    src = gdal.open(filePath);
+    driver = 'GTiff';
+    w = src.rasterSize.x;
+    h = src.rasterSize.y;
+
+    geoTransform = src.geoTransform;
+
+    res = {
+      x: geoTransform[1],
+      y: geoTransform[5]
+    };
+
+    tw = Math.ceil(res.x);
+    th = Math.ceil(res.y);
+
+    sSrs = src.srs;
+    tSrs = gdal.SpatialReference.fromUserInput('EPSG:4326');
+
+    parsed = path.parse(filePath);
+    out = path.join(program.outpath, parsed.name + parsed.ext);
+    dst = gdal.open(out, 'w', driver, tw, th);
+
+    gdal.reprojectImage({
+      src: src,
+      dst: out,
+      s_srs: sSrs,
+      t_srs: tSrs
+    });
+
+  };
+
+};
 
 function stream (callback) {
 
